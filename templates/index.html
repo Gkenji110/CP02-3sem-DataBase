@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Grand Tech Gala</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎭</text></svg>">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Grand Tech Gala · CP02 FIAP 2026</div>
+    <h1>The Grand <em>Tech Gala</em></h1>
+    <p>Motor PL/SQL · Promoção Inteligente de Fila de Espera</p>
+  </header>
+
+  <!-- NAVEGAÇÃO POR ABAS -->
+  <nav class="tab-nav">
+    <button class="tab-btn ativo" onclick="mudarAba('fila', this)">Fila de Espera</button>
+    <button class="tab-btn" onclick="mudarAba('pessoas', this)">Gerenciar Pessoas</button>
+  </nav>
+
+  <!-- ══════════════════════════════
+       ABA 1 — FILA DE ESPERA
+  ══════════════════════════════ -->
+  <section id="aba-fila">
+    <div id="gala-info-bar" class="gala-info-bar hidden"></div>
+
+    <!-- Estado atual: Fila + Confirmados -->
+    <div class="dois-col mt-24">
+        <div class="col-painel">
+          <div class="sec-title">Fila de Espera <span id="fila-count" class="count-badge"></span></div>
+          <p id="fila-vazia" class="msg-vazio hidden">Nenhuma inscrição WAITLIST.</p>
+          <table id="tabela-fila" class="hidden">
+            <thead><tr><th>#</th><th>Prioridade</th><th>Nome</th><th>Inscrito em</th><th>Ação</th></tr></thead>
+            <tbody id="tbody-fila"></tbody>
+          </table>
+        </div>
+        <div class="col-painel">
+          <div class="sec-title">Já Confirmados <span id="conf-count" class="count-badge"></span></div>
+          <p id="conf-vazio" class="msg-vazio hidden">Nenhuma inscrição confirmada.</p>
+          <table id="tabela-conf" class="hidden">
+            <thead><tr><th>Prioridade</th><th>Nome</th><th>Ação</th></tr></thead>
+            <tbody id="tbody-conf"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Adicionar à fila de espera -->
+      <div class="mt-32 inscricao-box">
+        <div class="sec-title">Adicionar à Fila de Espera</div>
+        <form id="form-inscricao" onsubmit="adicionarNaFila(event)" class="inscricao-form">
+          <div class="inscricao-row">
+            <select id="sel-usuario-inscricao" required>
+              <option value="">Selecionar usuário...</option>
+            </select>
+            <button type="submit" class="btn btn-sm">
+              <span id="btn-inscricao-txt">+ Adicionar à Fila</span>
+            </button>
+          </div>
+          <div id="status-inscricao" class="status-box"></div>
+        </form>
+      </div>
+
+      <!-- Promover fila -->
+      <div class="mt-32 promover-box">
+        <div class="sec-title">Promover Fila de Espera</div>
+        <form id="form-processar" onsubmit="executarPromocao(event)">
+          <div class="form-grid-single">
+            <div class="field">
+              <label for="vgs">Vagas para Liberar</label>
+              <input type="number" id="vgs" placeholder="Ex: 5" min="1" required>
+              <small>Platinum → VIP → Normal · desempate por data de inscrição</small>
+            </div>
+          </div>
+          <div id="status-exec" class="status-box"></div>
+          <button type="submit" class="btn" id="btn-exec">
+            <span id="btn-exec-txt">🎟 Liberar Vagas para o Evento</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Resultados da execução -->
+      <div id="summary" class="hidden mt-32">
+        <div class="sec-title">Resumo de Confirmados</div>
+        <div class="chips" id="chips"></div>
+      </div>
+      <div id="log-section" class="hidden mt-44">
+        <div class="sec-title">Log de Promoções — HISTORICO_STATUS</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Log</th><th>Inscrição</th><th>Prioridade</th><th>Nome</th>
+              <th>Email</th><th>Status</th><th>Data/Hora</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+  </section>
+
+  <!-- ══════════════════════════════
+       ABA 2 — GERENCIAR PESSOAS
+  ══════════════════════════════ -->
+  <section id="aba-pessoas" class="hidden">
+
+    <!-- Regra de Negócio -->
+    <div class="regra-box">
+      <div class="regra-titulo">Regra de Negócio — Promoção de Fila de Espera</div>
+      <p class="regra-desc">
+        Quando vagas são liberadas, o sistema promove automaticamente inscrições de
+        <strong>WAITLIST → CONFIRMADO</strong> respeitando a seguinte ordem de prioridade:
+      </p>
+      <div class="regra-steps">
+        <div class="regra-step p3">
+          <div class="regra-step-num">1º</div>
+          <div class="regra-step-body">
+            <div class="regra-step-label">🟡 Platinum — Prioridade 3</div>
+            <div class="regra-step-desc">Primeiro a ser promovido. Entre Platinums, quem inscreveu <em>antes</em> sai na frente.</div>
+          </div>
+        </div>
+        <div class="regra-step p2">
+          <div class="regra-step-num">2º</div>
+          <div class="regra-step-body">
+            <div class="regra-step-label">🔵 VIP — Prioridade 2</div>
+            <div class="regra-step-desc">Promovido após esgotar Platinums. Desempate pela data de inscrição.</div>
+          </div>
+        </div>
+        <div class="regra-step p1">
+          <div class="regra-step-num">3º</div>
+          <div class="regra-step-body">
+            <div class="regra-step-label">⚪ Normal — Prioridade 1</div>
+            <div class="regra-step-desc">Promovido por último, quando não há mais VIPs ou Platinums na fila.</div>
+          </div>
+        </div>
+      </div>
+      <div class="regra-tecnica">
+        <span class="regra-badge">PL/SQL</span>
+        Cursor Explícito com <code>ORDER BY u.PRIORIDADE DESC, i.DATA_INSCRICAO ASC</code> +
+        <code>FOR UPDATE OF i.STATUS</code> garante bloqueio e ordem corretos.
+      </div>
+    </div>
+
+    <!-- Accordion: Cadastrar Usuário -->
+    <div>
+      <div class="accordion-header" onclick="toggleAccordion(this)">
+        <span class="acc-title">+ Cadastrar Novo Usuário</span>
+        <span class="acc-icon">▼</span>
+      </div>
+      <div class="accordion-body">
+        <form id="form-criar-usuario" onsubmit="cadastrarUsuario(event)" class="accordion-form">
+          <div class="form-grid-4">
+            <div class="field">
+              <label for="u-nome">Nome Completo</label>
+              <input type="text" id="u-nome" placeholder="Ex: João Silva" required>
+              <small>Nome do participante</small>
+            </div>
+            <div class="field">
+              <label for="u-email">Email</label>
+              <input type="email" id="u-email" placeholder="joao@email.com" required>
+              <small>Email único</small>
+            </div>
+            <div class="field">
+              <label for="u-prioridade">Prioridade</label>
+              <select id="u-prioridade">
+                <option value="1">⚪ Normal (1)</option>
+                <option value="2">🔵 VIP (2)</option>
+                <option value="3">🟡 Platinum (3)</option>
+              </select>
+              <small>Categoria do participante</small>
+            </div>
+            <div class="field">
+              <label for="u-saldo">Saldo Inicial (R$)</label>
+              <input type="number" id="u-saldo" placeholder="0.00" min="0" step="0.01" value="0">
+              <small>Saldo disponível</small>
+            </div>
+          </div>
+          <div id="status-criar-usuario" class="status-box"></div>
+          <button type="submit" class="btn">
+            <span id="btn-criar-usuario-txt">+ Cadastrar Usuário</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tabela de usuários -->
+    <div class="mt-32">
+      <div class="sec-title">Usuários Cadastrados</div>
+      <div id="status-usuarios" class="status-box"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Prioridade</th><th>Nome</th><th>Email</th><th>Saldo</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-usuarios">
+          <tr><td colspan="5" class="msg-vazio">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <hr class="sep">
+
+  <!-- ══════════════════════════════
+       SEÇÃO 4 — ACCORDION PL/SQL
+  ══════════════════════════════ -->
+  <div>
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+      <span class="acc-title">Bloco Anônimo PL/SQL Executado</span>
+      <span class="acc-icon">▼</span>
+    </div>
+    <div class="accordion-body">
+      <div class="code-box">
+        <pre><span class="kw">DECLARE</span>
+    v_vagas_restantes  <span class="fn">NUMBER</span> := :p_vagas;
+    v_promovidos       <span class="fn">NUMBER</span> := 0;
+
+    <span class="cm">-- Cursor Explicito com JOIN entre INSCRICOES e USUARIOS</span>
+    <span class="cm">-- Ordenado por PRIORIDADE (DESC) e DATA_INSCRICAO (ASC)</span>
+    <span class="cm">-- Bloqueado com FOR UPDATE OF i.STATUS para consistencia</span>
+    <span class="kw">CURSOR</span> c_waitlist <span class="kw">IS</span>
+        <span class="kw">SELECT</span>
+            i.ID             <span class="kw">AS</span> inscricao_id,
+            i.DATA_INSCRICAO,
+            u.NOME,
+            u.EMAIL,
+            u.PRIORIDADE
+        <span class="kw">FROM</span>
+            INSCRICOES  i
+            <span class="kw">JOIN</span> USUARIOS u <span class="kw">ON</span> u.ID = i.USUARIO_ID
+        <span class="kw">WHERE</span>
+            i.STATUS = <span class="str">'WAITLIST'</span>
+        <span class="kw">ORDER BY</span>
+            u.PRIORIDADE     <span class="kw">DESC</span>,
+            i.DATA_INSCRICAO <span class="kw">ASC</span>
+        <span class="kw">FOR UPDATE OF</span> i.STATUS;
+
+    r c_waitlist<span class="kw">%ROWTYPE</span>;
+
+<span class="kw">BEGIN</span>
+    <span class="kw">IF</span> v_vagas_restantes &lt;= 0 <span class="kw">THEN</span>
+        <span class="fn">RAISE_APPLICATION_ERROR</span>(-20001, <span class="str">'Parametros invalidos.'</span>);
+    <span class="kw">END IF</span>;
+
+    <span class="kw">OPEN</span> c_waitlist;
+    <span class="kw">LOOP</span>
+        <span class="kw">EXIT WHEN</span> v_vagas_restantes = 0;
+        <span class="kw">FETCH</span> c_waitlist <span class="kw">INTO</span> r;
+        <span class="kw">EXIT WHEN</span> c_waitlist<span class="kw">%NOTFOUND</span>;
+
+        <span class="kw">UPDATE</span> INSCRICOES
+           <span class="kw">SET</span> STATUS = <span class="str">'CONFIRMADO'</span>
+         <span class="kw">WHERE CURRENT OF</span> c_waitlist;
+
+        <span class="kw">INSERT INTO</span> HISTORICO_STATUS
+            (INSCRICAO_ID, STATUS_ANTERIOR, STATUS_NOVO, MOTIVO)
+        <span class="kw">VALUES</span> (
+            r.inscricao_id,
+            <span class="str">'WAITLIST'</span>,
+            <span class="str">'CONFIRMADO'</span>,
+            <span class="str">'Promocao automatica - Prioridade '</span> || r.PRIORIDADE ||
+            <span class="str">' | '</span> || r.NOME || <span class="str">' &lt;'</span> || r.EMAIL || <span class="str">'&gt;'</span>
+        );
+
+        v_promovidos      := v_promovidos + 1;
+        v_vagas_restantes := v_vagas_restantes - 1;
+    <span class="kw">END LOOP</span>;
+    <span class="kw">CLOSE</span> c_waitlist;
+
+    <span class="kw">COMMIT</span>;
+    :p_promovidos := v_promovidos;
+    :p_erro       := <span class="kw">NULL</span>;
+
+<span class="kw">EXCEPTION</span>
+    <span class="kw">WHEN OTHERS THEN</span>
+        <span class="kw">IF</span> c_waitlist<span class="kw">%ISOPEN THEN CLOSE</span> c_waitlist; <span class="kw">END IF</span>;
+        <span class="kw">ROLLBACK</span>;
+        :p_promovidos := -1;
+        :p_erro       := <span class="fn">SQLERRM</span>;
+<span class="kw">END</span>;</pre>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>FIAP · Mastering Relational and Non Relational Databases<br>
+       Professor Renê Mendes · 2026 · Checkpoint 2<br>
+       Oracle: oracle.fiap.com.br:1521/orcl</p>
+  </footer>
+
+</div>
+
+<script>
+const PRIO_LABEL = { 3: 'Platinum', 2: 'VIP', 1: 'Normal' };
+const PRIO_CLS   = { 3: 'p3', 2: 'p2', 1: 'p1' };
+const PRIO_ICON  = { 3: '🟡', 2: '🔵', 1: '⚪' };
+
+function mudarAba(aba, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  document.getElementById('aba-fila').classList.toggle('hidden', aba !== 'fila');
+  document.getElementById('aba-pessoas').classList.toggle('hidden', aba !== 'pessoas');
+}
+
+function toggleAccordion(header) {
+  const body = header.nextElementSibling;
+  header.classList.toggle('aberto');
+  body.classList.toggle('aberto');
+}
+
+function mostrarStatus(id, msg, tipo) {
+  const el = document.getElementById(id);
+  el.innerHTML = msg;
+  el.className = 'status-box ' + tipo;
+  el.style.display = 'block';
+}
+
+function esconderStatus(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+async function carregarGalaInfo() {
+  try {
+    const res  = await fetch('/api/gala_info');
+    const dado = await res.json();
+    if (dado.erro) return;
+    const bar = document.getElementById('gala-info-bar');
+    const pct = dado.total_vagas > 0 ? Math.round((1 - dado.vagas_disponiveis / dado.total_vagas) * 100) : 100;
+    bar.innerHTML = `
+      <div class="gala-info-row">
+        <div>
+          <div class="ev-nome">${dado.nome}</div>
+          <div class="ev-detail">📍 ${dado.local || '—'} &nbsp;·&nbsp; 📅 ${dado.data_evento}</div>
+        </div>
+        <div class="gala-stats">
+          <span class="${dado.vagas_disponiveis <= 0 ? 'sem-vagas' : 'com-vagas'}">
+            ${dado.vagas_disponiveis > 0 ? '✅ ' + dado.vagas_disponiveis + ' vagas disponíveis' : '⛔ Sem vagas'}
+          </span>
+          <span style="color:var(--muted);font-size:11px">${dado.confirmados} confirmados &nbsp;·&nbsp; ${dado.na_fila} na fila</span>
+        </div>
+      </div>
+      <div class="ev-barra" style="margin-top:10px"><div class="ev-barra-fill" style="width:${pct}%"></div></div>`;
+    bar.classList.remove('hidden');
+  } catch (_) {}
+}
+
+async function carregarGalaEstado() {
+  try {
+    const res   = await fetch('/api/gala_estado');
+    const dados = await res.json();
+    if (dados.erro) return;
+    renderFila(dados.waitlist);
+    renderConfirmados(dados.confirmados);
+  } catch (_) {}
+}
+
+function renderFila(waitlist) {
+  const count  = document.getElementById('fila-count');
+  const vazia  = document.getElementById('fila-vazia');
+  const tabela = document.getElementById('tabela-fila');
+  const tbody  = document.getElementById('tbody-fila');
+  count.textContent = waitlist.length;
+  if (!waitlist.length) {
+    tabela.classList.add('hidden');
+    vazia.classList.remove('hidden');
+    return;
+  }
+  vazia.classList.add('hidden');
+  tabela.classList.remove('hidden');
+  tbody.innerHTML = waitlist.map((r, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i + 1}º</td>
+      <td><span class="badge ${PRIO_CLS[r.prioridade]}">${PRIO_ICON[r.prioridade]} ${PRIO_LABEL[r.prioridade]}</span></td>
+      <td>${r.nome}</td>
+      <td style="color:var(--muted);font-size:11px">${r.data_inscricao}</td>
+      <td><button class="btn-remover" onclick="removerInscricao(${r.inscricao_id}, '${r.nome.replace(/'/g, "\\'")}')">Remover</button></td>
+    </tr>`).join('');
+}
+
+function renderConfirmados(confirmados) {
+  const count  = document.getElementById('conf-count');
+  const vazio  = document.getElementById('conf-vazio');
+  const tabela = document.getElementById('tabela-conf');
+  const tbody  = document.getElementById('tbody-conf');
+  count.textContent = confirmados.length;
+  if (!confirmados.length) {
+    tabela.classList.add('hidden');
+    vazio.classList.remove('hidden');
+    return;
+  }
+  vazio.classList.add('hidden');
+  tabela.classList.remove('hidden');
+  tbody.innerHTML = confirmados.map(r => `
+    <tr>
+      <td><span class="badge ${PRIO_CLS[r.prioridade]}">${PRIO_ICON[r.prioridade]} ${PRIO_LABEL[r.prioridade]}</span></td>
+      <td>${r.nome}</td>
+      <td><button class="btn-remover" onclick="removerInscricao(${r.inscricao_id}, '${r.nome.replace(/'/g, "\\'")}')">Remover</button></td>
+    </tr>`).join('');
+}
+
+async function executarPromocao(event) {
+  event.preventDefault();
+  const vagas = parseInt(document.getElementById('vgs').value);
+  const btn   = document.getElementById('btn-exec');
+  btn.disabled = true;
+  document.getElementById('btn-exec-txt').innerHTML = '<span class="spin"></span>Promovendo inscrições...';
+  mostrarStatus('status-exec', '<span class="spin"></span>Conectando ao Oracle...', '');
+  document.getElementById('summary').classList.add('hidden');
+  document.getElementById('log-section').classList.add('hidden');
+
+  try {
+    const res  = await fetch('/api/executar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ n_vagas: vagas }),
+    });
+    const data = await res.json();
+    if (data.erro) {
+      mostrarStatus('status-exec', '❌ Erro Oracle: ' + data.erro, 'err');
+    } else {
+      mostrarStatus('status-exec',
+        `✅ <strong>${data.promovidos}</strong> inscrição(ões) promovida(s). ` +
+        `Fila restante: <strong>${data.waitlist_restante}</strong>.`, 'ok');
+      renderChips(data.resumo);
+      renderTabela(data.rows);
+      await carregarGalaEstado();
+      await carregarGalaInfo();
+    }
+  } catch (e) {
+    mostrarStatus('status-exec', '❌ ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('btn-exec-txt').textContent = '🎟 Liberar Vagas para o Evento';
+  }
+}
+
+function renderChips([platinum, vip, normal, total]) {
+  document.getElementById('chips').innerHTML = `
+    <div class="chip p3"><span class="n">${platinum}</span>🟡 Platinum</div>
+    <div class="chip p2"><span class="n">${vip}</span>🔵 VIP</div>
+    <div class="chip p1"><span class="n">${normal}</span>⚪ Normal</div>
+    <div class="chip tot"><span class="n">${total}</span>Total Conf.</div>`;
+  document.getElementById('summary').classList.remove('hidden');
+}
+
+function renderTabela(rows) {
+  if (!rows?.length) return;
+  document.getElementById('tbody').innerHTML = rows.map(
+    ([logId, insId, nome, email, prio, antes, depois, data]) => `
+    <tr>
+      <td>${logId}</td>
+      <td>${insId}</td>
+      <td><span class="badge ${PRIO_CLS[prio]}">${PRIO_ICON[prio]} ${PRIO_LABEL[prio]}</span></td>
+      <td>${nome}</td>
+      <td style="color:var(--muted);font-size:11px">${email}</td>
+      <td><span class="pill">CONFIRMADO</span></td>
+      <td style="color:var(--muted);font-size:11px">${data}</td>
+    </tr>`
+  ).join('');
+  document.getElementById('log-section').classList.remove('hidden');
+}
+
+async function popularSelectUsuariosInscricao() {
+  try {
+    const url   = '/api/usuarios?filtrar_gala=1';
+    const res   = await fetch(url);
+    const dados = await res.json();
+    const sel   = document.getElementById('sel-usuario-inscricao');
+    sel.innerHTML = '<option value="">Selecionar usuário...</option>';
+    if (dados.erro || !dados.length) {
+      sel.innerHTML += '<option value="" disabled>Todos já inscritos</option>';
+      return;
+    }
+    dados.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value       = u.id;
+      opt.textContent = `${PRIO_ICON[u.prioridade]} ${u.nome}`;
+      sel.appendChild(opt);
+    });
+  } catch (_) {}
+}
+
+async function removerInscricao(inscricaoId, nome) {
+  if (!confirm(`Remover "${nome}" da lista? A inscrição será cancelada.`)) return;
+  try {
+    const res  = await fetch('/api/inscricoes/' + inscricaoId, { method: 'DELETE' });
+    const dado = await res.json();
+    if (dado.erro) {
+      alert('Erro: ' + dado.erro);
+      return;
+    }
+    await carregarGalaEstado();
+    await carregarGalaInfo();
+    popularSelectUsuariosInscricao();
+  } catch (e) {
+    alert('Erro de rede: ' + e.message);
+  }
+}
+
+async function adicionarNaFila(event) {
+  event.preventDefault();
+  const usuarioId = parseInt(document.getElementById('sel-usuario-inscricao').value);
+  const btn       = document.getElementById('btn-inscricao-txt');
+  btn.innerHTML = '<span class="spin"></span>Adicionando...';
+
+  try {
+    const res  = await fetch('/api/inscricoes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario_id: usuarioId }),
+    });
+    const dado = await res.json();
+    if (dado.erro) {
+      mostrarStatus('status-inscricao', '❌ ' + dado.erro, 'err');
+    } else {
+      mostrarStatus('status-inscricao', `✅ ${dado.nome} adicionado(a) à fila de espera.`, 'ok');
+      document.getElementById('sel-usuario-inscricao').value = '';
+      await carregarGalaEstado();
+      await carregarGalaInfo();
+      popularSelectUsuariosInscricao();
+    }
+  } catch (e) {
+    mostrarStatus('status-inscricao', '❌ ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = '+ Adicionar à Fila';
+  }
+}
+
+async function carregarUsuarios() {
+  try {
+    const res   = await fetch('/api/usuarios');
+    const dados = await res.json();
+    if (dados.erro) { mostrarStatus('status-usuarios', '❌ ' + dados.erro, 'err'); return; }
+    document.getElementById('tbody-usuarios').innerHTML = dados.map(u => `
+      <tr id="user-row-${u.id}"
+          data-id="${u.id}"
+          data-nome="${u.nome.replace(/"/g, '&quot;')}"
+          data-email="${u.email}"
+          data-prioridade="${u.prioridade}"
+          data-saldo="${u.saldo}">
+        <td><span class="badge ${PRIO_CLS[u.prioridade]}">${PRIO_ICON[u.prioridade]} ${PRIO_LABEL[u.prioridade]}</span></td>
+        <td>${u.nome}</td>
+        <td style="color:var(--muted);font-size:11px">${u.email}</td>
+        <td style="color:var(--confirm)">R$ ${Number(u.saldo).toFixed(2)}</td>
+        <td>
+          <div class="acoes">
+            <button class="btn-acao editar" onclick="editarUsuario(${u.id})">✏ Editar</button>
+            <button class="btn-acao apagar" onclick="apagarUsuario(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">✕ Apagar</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch (e) {
+    mostrarStatus('status-usuarios', '❌ ' + e.message, 'err');
+  }
+}
+
+function editarUsuario(id) {
+  const existente = document.getElementById('edit-row-' + id);
+  if (existente) { existente.remove(); return; }
+
+  const row   = document.getElementById('user-row-' + id);
+  const nome  = row.dataset.nome;
+  const email = row.dataset.email;
+  const prio  = parseInt(row.dataset.prioridade);
+  const saldo = row.dataset.saldo;
+
+  const editRow = document.createElement('tr');
+  editRow.id = 'edit-row-' + id;
+  editRow.className = 'edit-row';
+  editRow.innerHTML = `
+    <td colspan="5">
+      <div class="edit-form">
+        <div class="form-grid-4">
+          <div class="field"><label>Nome</label>
+            <input id="edit-nome-${id}" value="${nome.replace(/"/g, '&quot;')}">
+          </div>
+          <div class="field"><label>Email</label>
+            <input id="edit-email-${id}" value="${email}">
+          </div>
+          <div class="field"><label>Prioridade</label>
+            <select id="edit-prio-${id}">
+              <option value="1" ${prio===1?'selected':''}>⚪ Normal (1)</option>
+              <option value="2" ${prio===2?'selected':''}>🔵 VIP (2)</option>
+              <option value="3" ${prio===3?'selected':''}>🟡 Platinum (3)</option>
+            </select>
+          </div>
+          <div class="field"><label>Saldo (R$)</label>
+            <input type="number" id="edit-saldo-${id}" value="${saldo}" min="0" step="0.01">
+          </div>
+        </div>
+        <div id="status-edit-${id}" class="status-box" style="margin-top:12px"></div>
+        <div class="edit-acoes">
+          <button class="btn btn-sm" onclick="salvarEdicao(${id})"><span>✔ Salvar</span></button>
+          <button class="btn-cancel" onclick="cancelarEdicao(${id})">✕ Cancelar</button>
+        </div>
+      </div>
+    </td>`;
+  row.insertAdjacentElement('afterend', editRow);
+}
+
+function cancelarEdicao(id) {
+  const editRow = document.getElementById('edit-row-' + id);
+  if (editRow) editRow.remove();
+}
+
+async function salvarEdicao(id) {
+  const nome  = document.getElementById('edit-nome-' + id).value.trim();
+  const email = document.getElementById('edit-email-' + id).value.trim();
+  const prio  = parseInt(document.getElementById('edit-prio-' + id).value);
+  const saldo = parseFloat(document.getElementById('edit-saldo-' + id).value) || 0;
+
+  if (!nome || !email) {
+    mostrarStatus('status-edit-' + id, '❌ Nome e email são obrigatórios.', 'err');
+    return;
+  }
+
+  try {
+    const res  = await fetch('/api/usuarios/' + id, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, prioridade: prio, saldo }),
+    });
+    const dado = await res.json();
+    if (dado.erro) {
+      mostrarStatus('status-edit-' + id, '❌ ' + dado.erro, 'err');
+    } else {
+      cancelarEdicao(id);
+      await carregarUsuarios();
+    }
+  } catch (e) {
+    mostrarStatus('status-edit-' + id, '❌ ' + e.message, 'err');
+  }
+}
+
+async function apagarUsuario(id, nome) {
+  if (!confirm(`Confirmar exclusão de "${nome}"?`)) return;
+  try {
+    const res  = await fetch('/api/usuarios/' + id, { method: 'DELETE' });
+    const dado = await res.json();
+    if (dado.erro) {
+      mostrarStatus('status-usuarios', '❌ ' + dado.erro, 'err');
+    } else {
+      await carregarUsuarios();
+    }
+  } catch (e) {
+    mostrarStatus('status-usuarios', '❌ ' + e.message, 'err');
+  }
+}
+
+async function cadastrarUsuario(event) {
+  event.preventDefault();
+  const nome       = document.getElementById('u-nome').value.trim();
+  const email      = document.getElementById('u-email').value.trim();
+  const prioridade = parseInt(document.getElementById('u-prioridade').value);
+  const saldo      = parseFloat(document.getElementById('u-saldo').value) || 0;
+  const btn        = document.getElementById('btn-criar-usuario-txt');
+  btn.innerHTML = '<span class="spin"></span>Cadastrando...';
+
+  try {
+    const res  = await fetch('/api/usuarios', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, prioridade, saldo }),
+    });
+    const dado = await res.json();
+    if (dado.erro) {
+      mostrarStatus('status-criar-usuario', '❌ ' + dado.erro, 'err');
+    } else {
+      mostrarStatus('status-criar-usuario', `✅ Usuário "<strong>${dado.nome}</strong>" cadastrado.`, 'ok');
+      document.getElementById('form-criar-usuario').reset();
+      await carregarUsuarios();
+      await popularSelectUsuariosInscricao();
+    }
+  } catch (e) {
+    mostrarStatus('status-criar-usuario', '❌ ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = '+ Cadastrar Usuário';
+  }
+}
+
+carregarGalaInfo();
+carregarGalaEstado();
+carregarUsuarios();
+popularSelectUsuariosInscricao();
+</script>
+</body>
+</html>

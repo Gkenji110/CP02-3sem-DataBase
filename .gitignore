@@ -1,0 +1,25 @@
+# Secrets — nunca versionar
+.env
+
+# Scripts de teste e setup local
+test.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# VS Code / Copilot
+.vscode/mcp.json
+.github/
+.playwright-mcp/
+
+# Vercel
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db

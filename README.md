@@ -1,82 +1,103 @@
 # The Grand Tech Gala — Motor de Promoção de Fila
 
+**Checkpoint 2 — Mastering Relational and Non Relational Databases**  
+FIAP 2026 · Professor Renê Mendes
+
+Sistema de gerenciamento de fila de espera para o evento **Grand Tech Gala 2026**, com promoção automática de inscritos via bloco anônimo PL/SQL, priorizando usuários Platinum > VIP > Normal.
+
 ---
 
-## 📁 Estrutura do Projeto
+## Pré-requisitos
+
+Antes de rodar o projeto, você precisa ter instalado:
+
+- **Python 3.10+** — [python.org/downloads](https://www.python.org/downloads/)
+
+Não é necessário instalar nada mais — o `run.py` cuida do restante automaticamente.
+
+---
+
+## Como rodar localmente
+
+### 1. Clone o repositório
+
+```bash
+git clone https://github.com/Gkenji110/CP02-3sem-DataBase.git
+cd CP02-3sem-DataBase
+```
+
+### 2. Configure as credenciais
+
+```bash
+cp .env.example .env
+```
+
+Abra o `.env` e preencha com suas credenciais Oracle:
 
 ```
-gala_tech/
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
+DB_DSN=oracle.fiap.com.br:1521/orcl
+```
+
+### 3. Execute o projeto
+
+```bash
+python run.py
+```
+
+Esse único comando vai:
+1. Instalar todas as dependências (`requirements.txt`)
+2. Criar as tabelas no banco e inserir os dados de exemplo
+3. Subir o servidor Flask automaticamente
+
+Acesse em: **http://localhost:5000**
+
+---
+
+## Estrutura do projeto
+
+```
+CP02-3sem-DataBase/
 ├── api/
-│   └── index.py         ← API serverless Python (handler da Vercel)
-├── public/
-│   └── index.html       ← Frontend estático
-├── setup_banco.sql      ← DDL + dados de exemplo (rodar 1x no SQL Developer)
-├── requirements.txt     ← Dependência: oracledb
-├── vercel.json          ← Configuração de rotas da Vercel
+│   └── app.py          ← Backend Flask + lógica PL/SQL
+├── templates/
+│   └── index.html      ← Interface HTML
+├── static/
+│   └── style.css       ← Estilos
+├── .env                ← Credenciais reais (não sobe ao git)
+├── .env.example        ← Modelo de variáveis de ambiente
+├── .gitignore
+├── requirements.txt    ← Dependências Python
+├── run.py              ← Script de setup e inicialização
+├── setupBanco.sql      ← DDL + dados de exemplo
+├── vercel.json
 └── README.md
 ```
 
 ---
 
-## Passo a Passo
+## Requisitos do desafio atendidos
 
-### 1. Banco de dados
-Execute `setup_banco.sql` **uma única vez** no SQL Developer.
+| Requisito | Como foi atendido |
+|---|---|
+| Bloco anônimo PL/SQL | `PLSQL_PROMOVER_FILA` em `app.py` — sem Procedures ou Triggers |
+| Cursor Explícito | `CURSOR c_waitlist` com JOIN entre `INSCRICOES` e `USUARIOS` |
+| Ordenação por prioridade | `ORDER BY u.PRIORIDADE DESC, i.DATA_INSCRICAO ASC` |
+| Bloqueio de registros | `FOR UPDATE OF i.STATUS` no cursor |
+| Registro de promoções | Cada promoção insere uma linha em `HISTORICO_STATUS` |
+| Tratamento de exceções | Bloco `EXCEPTION WHEN OTHERS` com `ROLLBACK` explícito |
+| Conexão via `oracledb` | Thin mode, credenciais carregadas do `.env` |
+| Secrets via `.env` | `python-dotenv`; `.env` no `.gitignore` |
 
-### 2. Desenvolvimento local
+---
 
-```bash
-pip install oracledb
-
-export DB_USER="seu_usuario"
-export DB_PASSWORD="sua_senha"
-export DB_DSN="oracle.fiap.com.br:1521/orcl"
-
-python -c "
-from http.server import HTTPServer
-from api.index import handler
-HTTPServer(('localhost', 8000), handler).serve_forever()
-"
-
-```
-
-### 3. Deploy na Vercel
+## Deploy na Vercel
 
 ```bash
-
 npm i -g vercel
-
-
 vercel
-
-vercel env add DB_USER
-vercel env add DB_PASSWORD
-vercel env add DB_DSN
-
-vercel --prod
 ```
 
----
+Defina `DB_USER`, `DB_PASSWORD` e `DB_DSN` nas variáveis de ambiente do painel da Vercel.
 
-## ⚙️ Por que essa estrutura funciona na Vercel?
-
-| Ponto | Detalhe |
-|-------|---------|
-| **Sem Flask** | A Vercel usa funções serverless; Flask não é compatível nativamente. O handler usa `BaseHTTPRequestHandler` puro, que a Vercel suporta. |
-| **oracledb modo Thin** | Não precisa do Oracle Instant Client instalado. Funciona diretamente no ambiente serverless. |
-| **Frontend estático** | `public/index.html` é servido como arquivo estático pela Vercel — zero configuração extra. |
-| **Variáveis de ambiente** | Credenciais lidas via `os.environ` — seguro para produção. |
-
----
-
-## ✅ Requisitos Técnicos Atendidos
-
-| Requisito | Onde |
-|-----------|------|
-| Cursor Explícito com JOIN | `api/index.py` → `CURSOR c_waitlist IS SELECT ... JOIN ...` |
-| ORDER BY PRIORIDADE DESC + DATA_INSCRICAO ASC | `api/index.py` → cláusula ORDER BY do cursor |
-| FOR UPDATE OF i.STATUS | `api/index.py` → última linha do cursor |
-| Log em HISTORICO_STATUS | `api/index.py` → INSERT dentro do LOOP |
-| Bloco Anônimo (sem Procedure/Trigger) | `api/index.py` → `DECLARE...BEGIN...END` |
-| COMMIT / ROLLBACK | `api/index.py` → após o LOOP / na EXCEPTION |
-| Tratamento de exceções Oracle | `api/index.py` → `oracledb.DatabaseError` |
