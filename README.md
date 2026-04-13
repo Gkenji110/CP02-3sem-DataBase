@@ -1,7 +1,8 @@
 # The Grand Tech Gala — Motor de Promoção de Fila
 
 **Checkpoint 2 — Mastering Relational and Non Relational Databases**  
-FIAP 2026 · Professor Renê Mendes
+- Ana Flavia Camelo - RM561489 - **afcamelo**
+- Gustavo Terada - RM562745 - **gkenji110**
 
 Sistema de gerenciamento de fila de espera para o evento **Grand Tech Gala 2026**, com promoção automática de inscritos via bloco anônimo PL/SQL, priorizando usuários Platinum > VIP > Normal.
 
@@ -77,27 +78,17 @@ CP02-3sem-DataBase/
 
 ---
 
-## Requisitos do desafio atendidos
+## Requisitos do desafio atendidos ✅
 
 | Requisito | Como foi atendido |
 |---|---|
-| Bloco anônimo PL/SQL | `PLSQL_PROMOVER_FILA` em `app.py` — sem Procedures ou Triggers |
-| Cursor Explícito | `CURSOR c_waitlist` com JOIN entre `INSCRICOES` e `USUARIOS` |
-| Ordenação por prioridade | `ORDER BY u.PRIORIDADE DESC, i.DATA_INSCRICAO ASC` |
-| Bloqueio de registros | `FOR UPDATE OF i.STATUS` no cursor |
-| Registro de promoções | Cada promoção insere uma linha em `HISTORICO_STATUS` |
-| Tratamento de exceções | Bloco `EXCEPTION WHEN OTHERS` com `ROLLBACK` explícito |
-| Conexão via `oracledb` | Thin mode, credenciais carregadas do `.env` |
-| Secrets via `.env` | `python-dotenv`; `.env` no `.gitignore` |
+| Bloco anônimo PL/SQL | `PLSQL_PROMOVER_FILA` em `app.py` — sem Procedures ou Triggers ✅ |
+| Cursor Explícito | `CURSOR c_waitlist` com JOIN entre `INSCRICOES` e `USUARIOS` ✅ |
+| Ordenação por prioridade | `ORDER BY u.PRIORIDADE DESC, i.DATA_INSCRICAO ASC` ✅ |
+| Bloqueio de registros | `FOR UPDATE OF i.STATUS` no cursor ✅ |
+| Registro de promoções | Cada promoção insere uma linha em `HISTORICO_STATUS` ✅ |
+| Tratamento de exceções | Bloco `EXCEPTION WHEN OTHERS` com `ROLLBACK` explícito ✅ |
+| Conexão via `oracledb` | Thin mode, credenciais carregadas do `.env` ✅ |
+| Secrets via `.env` | `python-dotenv`; `.env` no `.gitignore` ✅ |
 
 ---
-
-## Deploy na Vercel
-
-```bash
-npm i -g vercel
-vercel
-```
-
-Defina `DB_USER`, `DB_PASSWORD` e `DB_DSN` nas variáveis de ambiente do painel da Vercel.
-
