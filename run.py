@@ -76,7 +76,7 @@ def iniciar_flask():
     print("   (Pressione Ctrl+C para parar)\n")
 
     app_path = os.path.join(os.path.dirname(__file__), "api", "app.py")
-    os.execv(sys.executable, [sys.executable, app_path])
+    subprocess.run([sys.executable, app_path])
 
 
 if __name__ == "__main__":
